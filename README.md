@@ -1,1 +1,1 @@
-# lara-log
+<h1 align="center">Lara Log</h1>
