@@ -1,46 +1,48 @@
 // deno-lint-ignore-file no-explicit-any
-import { ILaraLoggerSetting } from "./types.ts";
+import { ELevelLogger, IDataLogger, ILaraLoggerSetting, ILogger } from "./types.ts";
 
-const colorsLogger = {
-    error: "color: red;",
-    critical: "color: orange;",
-    success: "color: green;",
-    warning: "color: yellow;",
-    debug: "color: purple;",
-    info: "color: blue;",
-    log: "color: white;"
+const colorsLogger: any = {
+    LOG: "color: white; font-weight: bold;",
+    SUCCESS: "color: green;",
+    DEBUG: "color: purple;",
+    INFO: "color: blue;",
+    ERROR: "color: red;",
+    WARNING: "color: yellow;",
+    CRITICAL: "color: orange;",
 }
 
-abstract class BaseLogger {
-    public abstract error(...data: any[]): void;
-    
-    public abstract waring(...data: any[]): void;
-
-    public abstract debug(...data: any[]): void;
-
-    public abstract critical(...data: any[]): void;
-
-    public abstract info(...data: any[]): void;
-
-    public abstract success(...data: any[]): void;
-
-    public abstract log(...data: any[]): void;
-}
-
-export class LaraGlobalLogger extends BaseLogger{
+export class LaraGlobalLogger implements ILogger{
     protected static SETTINGS: ILaraLoggerSetting = {
         saveFile: false,
         showDate: false
     };
-    public static DATA: any = {
-        message: ["",""],
+
+    public static DATA: IDataLogger = {
+        message: "",
+        extra: [],
         date: ""
     };
 
-    protected static topLevelName = "Top Log";
+    protected static loggers = new Map();
 
-    constructor() {
-        super();
+    protected static loggerName = "Top Log";
+
+    public static executeHandler(name: string, level: string) {
+        return LaraGlobalLogger.loggers.get(name).handlers[level];
+    }
+
+    public static addHandler(name: string, level: string, callback: any) {
+        LaraGlobalLogger.loggers.get(name).handlers[level] = callback;
+    }
+
+    public static hasHandler(name: string, level: string) {
+        return !!LaraGlobalLogger.loggers.get(name).handlers[level];
+    }
+
+    public static addLogger(name: string) {
+        LaraGlobalLogger.loggers.set(name, {
+            handlers: {}
+        })
     }
 
     public static setSetting(settings: ILaraLoggerSetting) {
@@ -48,7 +50,7 @@ export class LaraGlobalLogger extends BaseLogger{
     }
 
     public static setName(name: string) {
-        LaraGlobalLogger.topLevelName = name;
+        LaraGlobalLogger.loggerName = name;
     }
 
     public static init() {
@@ -61,72 +63,87 @@ export class LaraGlobalLogger extends BaseLogger{
             LaraGlobalLogger.DATA.date = `${formatDate} ${formatTime}`;
         }
 
-        LaraGlobalLogger.DATA.message = [`%c[${LaraGlobalLogger.topLevelName}] %c-${LaraGlobalLogger.SETTINGS.showDate ? ` ${LaraGlobalLogger.DATA.date}` : ""} `, ["color: green; font-weight: bold;", "color: white"]]
+        LaraGlobalLogger.DATA.message = `%c[${LaraGlobalLogger.loggerName}] %c-${LaraGlobalLogger.SETTINGS.showDate ? ` ${LaraGlobalLogger.DATA.date}` : ""} `;
+        LaraGlobalLogger.DATA.extra = ["color: green; font-weight: bold;", "color: white"]
     }
 
-    public error(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cERROR %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.error} font-weight: bold;`, "color: white")
+    public log(msg: string, metadata?: Record<string, unknown>): void {
+        this.print(10, msg, metadata);
     }
 
-    public waring(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cWARNING %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.warning} font-weight: bold;`, "color: white")
+    public success(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(20, msg, metadata);
     }
 
-    public debug(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cDEBUG %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.debug} font-weight: bold;`, "color: white")
+    public debug(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(30, msg, metadata);
     }
 
-    public critical(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cCRITICAL %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.critical} font-weight: bold;`, "color: white")
+    public info(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(40, msg, metadata);
     }
 
-    public info(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cINFO %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.info} font-weight: bold;`, "color: white")
+    public error(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(50, msg, metadata);
     }
 
-    public success(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cSUCCESS %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.success} font-weight: bold;`, "color: white")
+    public waring(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(60, msg, metadata);
     }
 
-    public log(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cLOG %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.log} font-weight: bold;`, "color: white")
+    public critical(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(70, msg, metadata);
+    }
+
+    private print(level: ELevelLogger, msg: string, metadata?: Record<string, unknown>): void {
+        console.log(`${LaraGlobalLogger.DATA.message}\t%c${ELevelLogger[level]} %c${msg}`, ...LaraGlobalLogger.DATA.extra, `${colorsLogger[ELevelLogger[level]]}`, "color: white", metadata ? metadata : "");
     }
 }
 
-export class LaraLogger extends BaseLogger{
-    protected lowLevelName: string;
+export class LaraLogger implements ILogger{
+    protected loggerName: string;
 
     constructor (name: string) {
-        super();
+        this.loggerName = name;
 
-        this.lowLevelName = name;
+        LaraGlobalLogger.addLogger(name);
     }
 
-    public error(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cERROR %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.error} font-weight: bold;`, `${colorsLogger.error} font-weight: bold;`, "color: white");
+    public log(msg: string, metadata?: Record<string, unknown>): void {
+        this.print(10, msg, metadata);
     }
 
-    public waring(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cWARNING %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.warning} font-weight: bold;`, `${colorsLogger.warning} font-weight: bold;`, "color: white");
+    public success(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(20, msg, metadata);
     }
 
-    public debug(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cDEBUG %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.debug} font-weight: bold;`, `${colorsLogger.debug} font-weight: bold;`, "color: white");
+    public debug(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(30, msg, metadata);
     }
 
-    public critical(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cCRITICAL %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.critical} font-weight: bold;`, `${colorsLogger.critical} font-weight: bold;`, "color: white");
+    public info(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(40, msg, metadata);
     }
 
-    public info(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cINFO %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.info} font-weight: bold;`, `${colorsLogger.info} font-weight: bold;`, "color: white");
+    public error(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(50, msg, metadata);
     }
 
-    public success(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cSUCCESS %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.success} font-weight: bold;`, `${colorsLogger.success} font-weight: bold;`, "color: white");
+    public waring(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(60, msg, metadata);
     }
 
-    public log(...data: any[]): void {
-        console.log(`${LaraGlobalLogger.DATA.message[0]}%cLOG %c[${this.lowLevelName}] %c${data}`, ...LaraGlobalLogger.DATA.message[1], `${colorsLogger.log} font-weight: bold;`, `${colorsLogger.log} font-weight: bold;`, "color: white");
+    public critical(msg: string, metadata?: Record<string, unknown>): void  {
+        this.print(70, msg, metadata);
+    }
+
+    private print(level: ELevelLogger, msg: string, metadata?: Record<string, unknown>): void {
+        const output = [`${LaraGlobalLogger.DATA.message}\t%c${ELevelLogger[level]} %c[${this.loggerName}] %c${msg}`, metadata];
+
+        if (LaraGlobalLogger.hasHandler(this.loggerName, ELevelLogger[level])) {
+            LaraGlobalLogger.executeHandler(this.loggerName, ELevelLogger[level])(this.loggerName, level, output);
+        }
+
+        console.log(output[0], ...LaraGlobalLogger.DATA.extra, `${colorsLogger[ELevelLogger[level]]}`, `${colorsLogger[ELevelLogger[level]]}`, "color: white", metadata ? metadata : "");
     }
 }

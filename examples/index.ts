@@ -8,6 +8,10 @@ LaraGlobalLogger.setSetting({
 
 LaraGlobalLogger.init()
 
+const mainLogger = new LaraGlobalLogger();
+
+mainLogger.log("hello")
+
 const logger = new LaraLogger("Controller Main")
 
 const logger2 = new LaraLogger("Controller Fonts");
@@ -18,7 +22,9 @@ logger.waring("a port is not a number")
 
 logger2.error("load fonts")
 
-logger2.debug("init fonts", "start fonts", Function)
+logger2.debug("init fonts", {
+    hello: "s"
+})
 
 logger.critical("Server")
 
